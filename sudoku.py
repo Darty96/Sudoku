@@ -8,9 +8,6 @@ Created on Tue Jan 11 23:21:45 2022
 import numpy as np
 import logging, time
 from random import randint
-# square, row, col
-#board = np.zeros((9, 3, 3))
-
 
 logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', datefmt="%Y-%m-%d %H:%M:%S", level=logging.DEBUG, filename="sudoku.log", filemode="w")
 
