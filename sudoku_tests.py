@@ -18,13 +18,17 @@ Created on Fri Mar 11 10:51:07 2022
 """
 
 from sudoku import Sudoku
-import logging
+import logging, logging.config
 
-logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', datefmt="%Y-%m-%d %H:%M:%S", level=logging.DEBUG, filename="sudoku_tests.log", filemode="w")
+#logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', datefmt="%Y-%m-%d %H:%M:%S", level=logging.DEBUG, filename="sudoku_tests.log", filemode="w")
+
+logging.config.fileConfig('logging.conf')
+
+logger = logging.getLogger('sudokuTest')
 
 def test_sudoku_init_from_file():
   # Arrange
-  logging.info("Beginning test: test_sudoku_init_from_file")
+  logger.info("Beginning test: test_sudoku_init_from_file")
   test_file_name = "sudoku_test_00.txt"
   expected_square_zero =  [[[1,6,8], 
                             [5,7,2], 
@@ -39,17 +43,17 @@ def test_sudoku_init_from_file():
   Actual = Sudoku(filename = test_file_name)
   
   # Assert
-  logging.debug("  Beginning assertions")
+  logger.debug("  Beginning assertions")
   assert (Actual.board[0] == expected_square_zero).all()
   assert (Actual.board[8] == expected_square_eight).all()
-  logging.info("End of test: test_sudoku_init_from_file. Result: Passed")
+  logger.info("End of test: test_sudoku_init_from_file. Result: Passed")
 
 def main():
-  logging.info("Beginning test run")
+  logger.info("Beginning test run")
   
   test_sudoku_init_from_file()
   
-  logging.info("Finished test run")
+  logger.info("Finished test run")
 
 if __name__ == "__main__":
   main()

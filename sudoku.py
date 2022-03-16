@@ -6,10 +6,14 @@ Created on Tue Jan 11 23:21:45 2022
 """
 
 import numpy as np
-import logging, time
+import logging, logging.config
+import time
 from random import randint
 
-logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', datefmt="%Y-%m-%d %H:%M:%S", level=logging.DEBUG, filename="sudoku.log", filemode="w")
+#logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', datefmt="%Y-%m-%d %H:%M:%S", level=logging.DEBUG, filename="sudoku.log", filemode="w")
+logging.config.fileConfig('logging.conf')
+
+logger = logging.getLogger('sudoku')
 
 
 class Sudoku:
@@ -17,33 +21,38 @@ class Sudoku:
   
   LEGAL_VALUES = [i for i in range(1, 10)]
   UNIQUES = np.unique(LEGAL_VALUES)
-  EMPTY_VALUE  = 0
+  EMPTY_VALUE = 0
 
   """
   Initializes the Sudoku class object.
-  No parameters will create an "empty board", which is a board with only '0's (The EMPTY_VALUE).
+  No parameters will generate a board with 17 clues.
   Key 'filename' will initialize the board from a given text file.
   Key 'generate' will generate a board with the given number of clues.
+  Key 'test' will create an "empty board", which is a board with only '0's.
   """
   def __init__(self, **kwargs):
-    logging.debug("Initializing Sudoku board")
+    logger.debug("Initializing Sudoku board")
     if len(kwargs) > 0: # If keyword arguments were provided
-      logging.debug("  Initialization keyword arguments (expecting %s):", len(kwargs))
-      for key, value in kwargs.items():
-        logging.debug("\t%s : %s", key, value)
-    self.board = self.init_board()
-    self.clear_board()
+      logger.debug("  Initialization keyword arguments (expecting %s):", len(kwargs))
+      if logger.getEffectiveLevel() <= logging.DEBUG:
+        for key, value in kwargs.items():
+          logger.debug("\t%s : %s", key, value)
+#    self.board = self.init_board()
+#    self.clear_board()
+    self.board = np.zeros((9, 3, 3), dtype=int)
     if "filename" in kwargs.keys():
       self.init_from_file(kwargs["filename"])
-    if "generate" in kwargs.keys():
+    elif "generate" in kwargs.keys():
       self.generate_board(int(kwargs["generate"]))
+    else:
+      self.generate_board()
   
   """
   Compares Sudoku boards for equality.
   Returns: True if all values in self's board are equal to all corresponding values in other's board,
   False otherwise.
   """
-  def __eq__(self, other):
+  def __eq__(self, other) -> bool:
     return (self.board == other.board).all()
       
   """
@@ -109,7 +118,7 @@ class Sudoku:
 #            return False
 #    return True
   
-  def __collect_row_into_list__(self, row: int):
+  def __collect_row_into_list__(self, row: int) -> list:
     r = row % 3
     s = 0 # first row of squares
     L = list()
@@ -124,7 +133,7 @@ class Sudoku:
       L.append(self.board[s][r][c])
     return L
   
-  def __collect_col_into_list__(self, col: int):
+  def __collect_col_into_list__(self, col: int) -> list:
     c = col % 3
     s = 0 # first col of squares
     L = list()
@@ -139,7 +148,7 @@ class Sudoku:
       L.append(self.board[s][r][c])
     return L
   
-  def __values_are_valid__(self, values: list):
+  def __values_are_valid__(self, values: list) -> bool:
     for i in range(len(values)):
       if values[i] in Sudoku.LEGAL_VALUES or values[i] == Sudoku.EMPTY_VALUE:
         if values.count(values[i]) > 1:
@@ -149,7 +158,7 @@ class Sudoku:
         return False
     return True
   
-  def __rows_are_valid__(self):
+  def __rows_are_valid__(self) -> bool:
     zcount = 0
     rows = set()
     for i in range(9):
@@ -167,7 +176,7 @@ class Sudoku:
         rows.add(v)
     return len(rows) + zcount == 9
     
-  def __cols_are_valid__(self):
+  def __cols_are_valid__(self) -> bool:
     zcount = 0
     cols = set()
     for i in range(9):
@@ -185,7 +194,7 @@ class Sudoku:
         cols.add(v)
     return len(cols) + zcount == 9
   
-  def __squares_are_valid__(self):
+  def __squares_are_valid__(self) -> bool:
     zcount = 0
     squares = set()
     for i in range(9):
@@ -206,9 +215,15 @@ class Sudoku:
         squares.add(v)
 #    print(f"len(squares) + zcount == 9: {len(squares)} + {zcount} == 9 -> {len(squares) + zcount == 9}")
     return len(squares) + zcount == 9
-    
-  def __is_valid__(self):
-    return self.__rows_are_valid__() and self.__cols_are_valid__() and self.__squares_are_valid__()
+  
+  """ Is Valid
+  Returns: bool -> True if the rows, columns, and 3x3 squares are in a valid state,
+    False otherwise.
+  """
+  def __is_valid__(self) -> bool:
+    return (self.__rows_are_valid__() 
+            and self.__cols_are_valid__() 
+            and self.__squares_are_valid__())
   
 #  def check_value(self, val, s, row, col) -> bool:
 #    return self.check_row(val, s, row, col) and self.check_col(val, s, row, col) and self.check_square(val, s, row, col)
@@ -216,7 +231,7 @@ class Sudoku:
   """
   Returns a string representation of the current state of the Sudoku board.
   """
-  def to_string(self):
+  def to_string(self) -> str:
     board_str = ""
     for k in range(0, 9, 3):
       for r in range(0, 3):
@@ -227,10 +242,25 @@ class Sudoku:
     return board_str
   
   """
+  Writes the contents of this Sudoku board to a text file,
+  using the same format as used to initialize a new board from a file.
+  Params: filename - a string. The Sudoku board will be written to this file.
+  """
+  def to_file(self, filename: str):
+    with open(filename, "w") as f:
+      for i in range(0, 81):
+        if i % 9 == 0 and i > 0:
+          f.write("\n")
+        s, r, c = Sudoku.pos_to_indices(i)
+        f.write(str(self.board[s][r][c]))
+      f.write("\n")
+        
+    
+  """
   Returns True if the given Sudoku square (or 3x3 block) is solved, False otherwise.
   Solved is defined as each cell containing a unique integer in the interval [1,9].
   """
-  def square_is_solved(self, s):
+  def square_is_solved(self, s) -> bool:
     unique_square = np.unique(self.board[s])
     return (np.shape(unique_square) == np.shape(Sudoku.UNIQUES) 
             and np.all(np.equal(unique_square, Sudoku.UNIQUES)))
@@ -238,7 +268,7 @@ class Sudoku:
   """
   Returns True if all nine squares of the Sudoku board are solved, False otherwise.
   """
-  def squares_are_solved(self):
+  def squares_are_solved(self) -> bool:
     if not self.__squares_are_valid__():
       return False
     for i in range(9):
@@ -251,12 +281,12 @@ class Sudoku:
   To be solved, the board must both be in a valid state and have no empty spaces.
   Note: An empty space is represented by a '0', the EMPTY_VALUE constant.
   """
-  def board_is_solved(self):
+  def board_is_solved(self) -> bool:
     valid = self.__rows_are_valid__() and self.__cols_are_valid__()
     solved = self.squares_are_solved() and self.board.all()
     return valid and solved
   
-  def board_is_solved_two(self):
+  def board_is_solved_two(self) -> bool:
     return (self.__rows_are_valid__() 
             and self.__cols_are_valid__() 
             and self.squares_are_solved() 
@@ -298,6 +328,7 @@ class Sudoku:
   """
   Initializes the Sudoku board from a file.
   The expected file format is 9 lines of 9 unseparated integers, organized by row.
+  However, as white space is removed, the integers may be separated without causing an error.
   """
   def init_from_file(self, filename: str):
     b = None
@@ -322,12 +353,12 @@ class Sudoku:
 #      else:
 #        self.board[s][r][c] = None
   
-  """
+  """ Position to Indices
   Maps an absolute position on the board to the three indices used in self.board.
   Params: An integer representing the absolute position on the board.
   Returns: Three integers, s, r, c, representing the square, row, and column position in self.board.
   """
-  def pos_to_indices(x: int):
+  def pos_to_indices(x: int) -> int:
     col = x % 9
     c = col % 3
     
@@ -340,21 +371,20 @@ class Sudoku:
     
     return s, r, c
   
-  """
+  """ Indices to Position
   Maps the three indices (square, row, column) to the absolute position on the board.
   Params: three integers, s, r, c, representing the square, row, and column position in self.board.
   Returns: An integer representing the absolute position on the board.
   """
-  def indices_to_pos(s: int, r: int, c: int):
+  def indices_to_pos(s: int, r: int, c: int) -> int:
+    # return 9 * (r + s - (s % 3)) + (3 * (s % 3) + c)
     square_col = s % 3
     square_row = s - square_col
     row = r + square_row
     col = 3 * square_col + c
     return 9 * row + col
-  
-  # return 9 * (r + s - (s % 3)) + (3 * (s % 3) + c)
     
-  """
+  """ Solve Puzzle Backtracking
   Solves the Sudoku puzzle using backtracking.
   This is a brute-force method of solving Sudoku.
   While it should be able to solve every solvable Sudoku puzzle,
@@ -368,11 +398,25 @@ class Sudoku:
         yield i
         i += 1
     
-    def check_cell(x):
+    """ Check Cell
+    Recursive method which checks the given Sudoku cell and attempts to find
+      a value to place in this cell to solve the puzzle. A recursive call is made
+      only when a value has been selected for the given cell and the board
+      remains in a valid state. If the board ever enters an invalid state,
+      the method will either try a new value, or, if all legal values have failed,
+      resets the offending value to 0 (the empty value) and returns False (backtracks)
+      to the previous calling method.
+    Params: x -> an integer representing the cell of the Sudoku board,
+      where each cell is numbered from 0 to 80, starting from the top-left cell
+      and counting across the rows from left to right, top to bottom.
+    Return: a bool -> True if a solution to this Sudoku board has been found,
+      False otherwise
+    """
+    def check_cell(x: int) -> bool:
       if x > 80:
-        logging.info("Finished solving board.")
+        logger.info("Solution has been found for this board.")
         return True
-      logging.debug("checking cell %s", x)
+      logger.debug("checking cell %s", x)
       s, r, c = Sudoku.pos_to_indices(x)
       if self.board[s][r][c] != Sudoku.EMPTY_VALUE:
         return check_cell(x + 1)
@@ -381,11 +425,11 @@ class Sudoku:
         self.board[s][r][c] = val
         if not self.__is_valid__():
           continue
-        logging.debug("Selected value %s for cell %s, about to check cell %s", val, x, x + 1)
+        logger.debug("Selected value %s for cell %s, about to check cell %s", val, x, x + 1)
         if check_cell(x + 1):
           return True
-        logging.debug("Returned to cell %s, current value is %s, checking next value.", x, val)
-      logging.debug("About to backtrack from cell %s (value was %s)", x, self.board[s][r][c])
+        logger.debug("Returned to cell %s, current value is %s, checking next value.", x, val)
+      logger.debug("About to backtrack from cell %s (value was %s)", x, self.board[s][r][c])
       self.board[s][r][c] = Sudoku.EMPTY_VALUE
       return False
     
@@ -396,51 +440,73 @@ class Sudoku:
         final = end - start
         print(f"Board is solved (in {final} seconds):")
         print(self.to_string())
-        logging.info("Board was solved in %s seconds", final)
+        logger.info("Board was solved in %s seconds", final)
         return True
       else:
         print("Error: Board is not solved, but check_cell returned True.")
         print(self.to_string())
-        logging.warning("Board was reported solved, but is not actually solved.")
+        logger.warning("Board was reported solved, but is not actually solved.")
         return False
     else:
-      print("Board is not solvable")
+      print(f"Board is not solvable (conclusion reached in {time.time() - start} seconds)")
       print(self.to_string())
-      logging.info("Board was found to be unsolvable in %s seconds", time.time() - start)
+      logger.info("Board was found to be unsolvable in %s seconds", time.time() - start)
       return False
-    
+  
+  """ Generate Board
+  Generates a solvable Sudoku board given a number of clues to generate.
+  Params: n -> An integer representing the number of clues to use for this board.
+    Defaults to 17 (the minimum number of clues needed to solve a Sudoku puzzle).
+  Return: None
+  """
   def generate_board(self, n: int = 17):
     print("\n")
-    def generate_position(pos, positions):
+    
+    """ Generate Clue
+    Recursive method which generates a clue at the given position, 
+      selected from a list of positions.
+    Params: pos -> an integer representing the position in which to generate a clue on the board.
+      clues -> a list of integers representing positions to place clues.
+    Return: bool -> True if this and all future calls found a clue for positions which
+      did not place the board in an invalid state, False otherwise.
+    """
+    def generate_clue(pos: int, clues: list) -> bool:
         values = [i for i in range(1, 10)]
         s, r, c = Sudoku.pos_to_indices(pos)
         while len(values) > 0:
+          # Try a random value from the remaining values
           self.board[s][r][c] = values.pop(randint(0, len(values)-1))
           if self.__is_valid__():
-            if len(positions) > 0:
-              if generate_position(positions.pop(0), positions):
-                logging.debug("inner generate position returning true")
+            if len(clues) > 0:
+              if generate_clue(clues.pop(0), clues):
+                # Received True from recursive call. All clues should be placed.
+                logger.debug("inner generate position returning true")
                 return True
               else:
-                logging.debug("inner generate position returned false")
+                # Received False from recursive call. At least one clue was invalid. 
+                # Try a new value.
+                logger.debug("inner generate position returned false")
                 continue
             else:
+              # Base case for recursion. We have finished placing all clues.
               return True
           else:
-            logging.debug("self.isValid is false")
+            # This clue put the board in an invalid state. Try a new value.
+            logger.debug("self.isValid is false")
 #        self.board[s][r][c] = 0
-        logging.debug("generate position returning false")
+        # All values at this position failed to produce a valid board.
+        logger.debug("generate position returning false")
         return False
     
     while True:
       N = [i for i in range(0, 81)]
-      positions = [N.pop(randint(0, len(N)-1)) for _ in range(n)]
-      print(f"length of positions: {len(positions)}")
+      clues = [N.pop(randint(0, len(N)-1)) for _ in range(n)]
+      print(f"Number of clues: {len(clues)}")
       
-      generate_position(positions.pop(0), positions)
+      generate_clue(clues.pop(0), clues)
       
       print(self.to_string())
-      board_cpy = self.board
+      board_cpy = self.board.copy()
       
       if self.solve_puzzle_backtracking():
         self.board = board_cpy
@@ -497,10 +563,12 @@ def main():
 #  print(G == T)
   start_time = time.time()
   print("Generating board")
-  logging.debug("About to create the Sudoku Board E")
+  logger.debug("About to create the Sudoku Board E")
   E = Sudoku(generate=17)
-  logging.info("Sudoku board generation and solution completed in %s seconds.\
+  logger.info("Sudoku board generation and solution completed in %s seconds.\
                Program is completed.", time.time() - start_time)
+  E.to_file("sudoku_output_test_00.txt")
   
 if __name__ == "__main__":
+  logger.info("Sudoku running as main.")
   main()
